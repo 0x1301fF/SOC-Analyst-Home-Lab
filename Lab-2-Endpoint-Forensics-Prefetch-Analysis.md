@@ -1,4 +1,4 @@
-# DFIR Laboratuvarı: Endpoint Forensics ve Evidence of Execution (Yürütme Kanıtı)
+# DFIR Laboratuvarı: Endpoint Forensics ve Evidence of Execution
 
 ## Laboratuvar Senaryosu ve Amacı
 Bu laboratuvar çalışması, bir Incident Response sürecinde Endpoint üzerinde gerçekleşen yetkisiz araç kullanımını (Rogue Tool Execution) simüle etmek amacıyla kurgulanmıştır. Temel hedef; sistemde çalıştırılan örnek bir aracın (`putty.exe`) ardında bıraktığı Windows Prefetch izlerini (artifact) analiz etmek ve "Dead-box Forensics" metodolojisiyle Evidence of Execution  tespit süreçlerini uygulamalı olarak gerçekleştirmektir.
