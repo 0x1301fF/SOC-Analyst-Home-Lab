@@ -1,14 +1,11 @@
 # Olay Müdahale Raporu: PCAP Analizi ve Dağıtım Vektörü Tespiti
 
-## Olay Özeti
-SOC ekibine yapılan bir bildirim doğrultusunda, bir kullanıcının arama motoru üzerinden sahte bir "Google Authenticator" uygulaması indirdiği şüphesiyle ilgili ağ segmentine ait PCAP kaydı incelemeye alınmıştır. Amacımız; zararlı yazılımın ağ üzerindeki dağıtım vektörünü belirlemek, enfekte olan sistemleri tespit etmek ve Komuta Kontrol (C2) altyapısına ait  Indicator of Compromise (IoC) raporlamaktır.
-
-><img width="1089" height="568" alt="sitenin paylaştığı cevap görseli" src="https://github.com/user-attachments/assets/9066afa0-82b6-4988-a411-fa044bd5cf80" />
-
+## Laboratuvar Senaryosu ve Amacı
+Bu çalışmayı, phishing ve typo-squatting vakalarının ağ seviyesinde nasıl tespit edileceğini laboratuvar ortamında görmek amacıyla gerçekleştirdim. Örnek bir PCAP dosyası üzerinden, sahte bir "Google Authenticator" uygulaması indiren hedefin ağ trafiğini analiz ettim. Temel amacım; zararlının dağıtım vektörünü belirlemek, enfekte olan hostu bulmak ve C2 altyapısına ait IoC'leri açığa çıkarmaktı.
 
 
 ## Ağ Topolojisi ve Ortam Bilgileri
-Analizi gerçekleştirilen yerel ağ segmentine ait mimari detaylar Wireshark (DHCP/DNS) üzerinden şu şekilde haritalandırılmıştır:
+Analizini gerçekleştirdiğim yerel ağ segmentine dair, vaka özeti kapsamında sağlanan temel ortam bilgileri aşağıda listelenmiştir: 
 * **LAN Segmenti:** 10.1.17.0/24
 * **Domain:** bluemoontuesday.com
 * **Domain Controller:** 10.1.17.2 (WIN-GSH54QLW48D)
@@ -19,9 +16,12 @@ Analizi gerçekleştirilen yerel ağ segmentine ait mimari detaylar Wireshark (D
 ## Analiz Adımları ve Bulgular
 
 ### 1. Host Tespiti
-Ağ trafiği genel olarak incelendiğinde, ağ geçidi üzerinden dış ağa olağandışı HTTP istekleri başlatan kaynak IP adresi tespit edilmiştir.
+Şüpheli aktivitenin kaynağını detaylandırmak amacıyla ağdaki DHCP ve Kerberos trafiğini filtreleyerek inceledim. İlk olarak DHCP paketleri üzerinden enfekte olan cihazın IP adresini, MAC adresini ve Hostname bilgisini buldum. Ardından, o an bu cihazı kullanan personelin kimliğini saptamak için Kerberos (AS-REQ) kimlik doğrulama trafiklerini analiz ettim ve aktif kullanıcı hesabını tespit ettim. 
+
 * **Kaynak IP Adresi:** 10.1.17.215
 * **Kaynak MAC Adresi:** 00:0d:b7:26:4a:74
+* **Hostname:** DESKTOP-L0CSGSJ 
+* **User Account:** shutchenson 
 
 > <img width="1440" height="900" alt="1 IP dhcp" src="https://github.com/user-attachments/assets/179dc53e-b806-4e43-93f0-4723215118f4" />
 ><img width="1440" height="900" alt="KERBEROS-USER ACCOUNT NAME" src="https://github.com/user-attachments/assets/25496d83-897c-4a64-a8a7-45d8aeac3ceb" />
@@ -29,22 +29,27 @@ Ağ trafiği genel olarak incelendiğinde, ağ geçidi üzerinden dış ağa ola
 
 
 ### 2. Delivery ve Payload Tespiti
-Wireshark üzerinde HTTP trafiği izlendiğinde, istemcinin harf benzerliği (typo-squatting) yöntemiyle oluşturulmuş sahte bir indirme sayfasına yönlendirildiği ve HTTP GET isteği ile zararlı bir payload indirdiği gözlemlenmiştir.
-* **Şüpheli Domain/URL:** authenticatoor[.]org
-* **İndirilen Şüpheli Dosya:** google-authenticator.exe
-
-> <img width="1434" height="917" alt="7 SS" src="https://github.com/user-attachments/assets/85949a25-3f5d-4b70-8deb-238063e533b8" />
-><img width="1089" height="568" alt="sitenin paylaştığı cevap görseli" src="https://github.com/user-attachments/assets/da24ff42-3a7e-4ecc-9245-6f711d5eea45" />
+Ağ trafiği üzerinde yaptığım analizde, hedeflenen sitenin HTTPS trafik kullanması nedeniyle doğrudan HTTP payload analizinin mümkün olmadığını gözlemledim. Bu nedenle analizimi DNS sorguları ve TLS Handshake (SNI) paketleri üzerinden yürüttüm. Yaptığım filtrelemeler sonucunda, istemcinin typo-squatting yöntemiyle oluşturulmuş sahte bir indirme sayfasına yönlendirildiğini tespit ettim. İndirilen şüpheli dosyanın adını OSINT verileriyle doğruladım.
 
 
-### 3. Command & Control (C2) Beaconing Analizi
-Zararlı dosyanın indirilmesinin ardından Wireshark'ın istatistik modülleri kullanılarak, sistemin dış ağdaki C2 sunucuları ile kurduğu periyodik TCP bağlantıları saptanmıştır. Ağ üzerindeki DNS trafik analizinde, cihazın şüpheli appointedtimeagriculture.com alan adına ulaşmak için 217.70.186.109 IP adresini çözümlediği ve hemen ardından bu zararlı adrese yönelik TCP bağlantılarının başlatıldığı tespit edilmiştir.
+* **Şüpheli Domain:** authenticatoor[.]org
+* **Tespit Edilen Vektör:** Malvertising / Şifreli (HTTPS) İndirme
+* **Doğrulanan Şüpheli Dosya:** google-authenticator.exe
+
+
+> <img width="1434" height="917" alt="7 SS" src="https://github.com/user-attachments/assets/c4c0c58c-bcb9-4607-b914-f71901bc4208" />
+> <img width="1089" height="568" alt="sitenin paylaştığı cevap görseli" src="https://github.com/user-attachments/assets/5d059dfd-640e-4fc7-843b-44dce980fe4c" />
+
+
+
+### 3. C2 Bağlantı Tespiti  ve TCP Analizi 
+Zararlı dosyanın çalıştırılmasının ardından, enfekte olan sistemin dış ağdaki C2 sunucuları ile kurduğu iletişimi saptamak amacıyla ağ trafiğini inceledim. Yaptığım DNS trafik analizinde, cihazın şüpheli appointedtimeagriculture.com alan adına ulaşmak için 217.70.186.109 IP adresini çözümlediğini ve bu DNS yanıtının hemen ardından ilgili zararlı adrese yönelik TCP bağlantılarının (SYN paketleri) başlatıldığını paket seviyesinde tespit ettim. 
 
 > <img width="1440" height="900" alt="9 SS" src="https://github.com/user-attachments/assets/db2ac61e-6d9c-4343-bbf0-06ecf2d54f3c" />
 
 
 ### 4. OSINT ve IoC Enrichment
-Wireshark üzerinden tespit edilen şüpheli C2 domain adresi, açık kaynak tehdit istihbaratı platformu (VirusTotal) üzerinden sorgulanmış ve birden fazla güvenlik üreticisi tarafından "Malicious" (Zararlı) olarak işaretlendiği doğrulanarak False Positive  ihtimali elenmiştir.
+Wireshark üzerinden tespit ettiğim şüpheli C2 domain adresini, açık kaynak tehdit istihbaratı platformu (VirusTotal) üzerinden sorguladım. Adresin birden fazla güvenlik üreticisi tarafından Malicious olarak işaretlendiğini teyit ettim.
 
 ><img width="1440" height="900" alt="2 IP research" src="https://github.com/user-attachments/assets/f7dc488a-93e3-4e82-8e04-33764c06cd8c" />
 
@@ -53,13 +58,15 @@ Wireshark üzerinden tespit edilen şüpheli C2 domain adresi, açık kaynak teh
 ---
 
 ## Tespit Edilen IoC'ler 
-* **Dağıtım Alan Adı:** authenticatoor[.]org
-* **C2 Sunucu IP Adresi:** 5.252.153.241
+* **Dağıtım (Delivery) Domaini:** authenticatoor[.]org
+* **Dağıtım (Delivery) IP Adresi:** 82.221.136.26
+* **C2 Domaini:** appointedtimeagriculture[.]com
+* **C2 IP Adresi:** 217.70.186.109
 
-## Sonuç ve Devam Eden Süreç
-Yapılan PCAP analizi sonucunda tehdit aktörünün ağ seviyesindeki Initial Access ve Delivery aşamaları doğrulanmıştır.
+## Sonuç:
+Yaptığım PCAP analizi sonucunda tehdit aktörünün ağ seviyesindeki Initial Access ve Delivery aşamalarını ham trafik üzerinden doğruladım.
+
 
 ---
-*Not: Bu analiz, Palo Alto Unit 42 tehdit istihbaratı raporlarına dayanan gerçek dünya senaryolarından derlenmiş veriler kullanılarak gerçekleştirilmiştir.*
-
+*Not: Bu analizi, Palo Alto Unit 42 tehdit istihbaratı raporlarına dayanan gerçek dünya senaryolarından derlenmiş veriler kullanarak gerçekleştirdim.*
 
